@@ -334,9 +334,19 @@ function fi(t){
 function calcEst(){
   var rate=parseInt(document.getElementById('rate').value)||5000;
   // ページ種別ごとに集計
+  // カスタム投稿・通常投稿はスラッグ（種類）単位でカウント、記事数はカウントしない
   var counts={};
+  var seenSlugs={};
   AU.forEach(function(u){
     var t=gt(u);
+    if(t==='ブログ'||t==='施工事例'||t==='記事'){
+      // スラッグ（最初のパス）を抽出
+      var m=u.replace(/https?:\/\/[^\/]+/,'').match(/^\/([^\/]+)/);
+      var slug=m?m[1]:'_unknown';
+      var key=t+'::'+slug;
+      if(seenSlugs[key])return; // 同じスラッグは1件だけ
+      seenSlugs[key]=true;
+    }
     counts[t]=(counts[t]||0)+1;
   });
 
@@ -420,7 +430,18 @@ function dlEstCSV(){
   var hs=['ページ種別','件数','デザイン(h)','コーディング(h)','小計(h)','金額（税抜）','備考'];
 
   var counts={};
-  AU.forEach(function(u){var t=gt(u);counts[t]=(counts[t]||0)+1;});
+  var seenSlugs2={};
+  AU.forEach(function(u){
+    var t=gt(u);
+    if(t==='ブログ'||t==='施工事例'||t==='記事'){
+      var m=u.replace(/https?:\/\/[^\/]+/,'').match(/^\/([^\/]+)/);
+      var slug=m?m[1]:'_unknown';
+      var key=t+'::'+slug;
+      if(seenSlugs2[key])return;
+      seenSlugs2[key]=true;
+    }
+    counts[t]=(counts[t]||0)+1;
+  });
   var rows=[];var totalDesign=0,totalCoding=0;
 
   Object.keys(counts).forEach(function(t){
@@ -428,7 +449,8 @@ function dlEstCSV(){
     var cnt=counts[t];
     var d=def.design*cnt,c=def.coding*cnt;
     totalDesign+=d;totalCoding+=c;
-    rows.push([def.label+'（'+t+'）',cnt,d,c,d+c,'¥'+numberFmt((d+c)*rate),'']);
+    var note=(t==='ブログ'||t==='施工事例'||t==='記事')?'1スラッグ1件でカウント（記事の移行作業費は考慮しない）':'';
+    rows.push([def.label+'（'+t+'）',cnt,d,c,d+c,'¥'+numberFmt((d+c)*rate),note]);
   });
 
   var dirH=Math.ceil((totalDesign+totalCoding)*0.2);
